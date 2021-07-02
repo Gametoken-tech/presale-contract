@@ -9,7 +9,7 @@ contract Presale is Ownable {
     using SafeERC20 for IERC20;
 
     event Invested(address indexed account, uint256 amount);
-    event Started();
+    event ScheduleStart(uint64 startTime);
     event AllowClaim();
     event Claimed(address indexed account, uint256 amount);
     event Withdrawn(uint256 amount);
@@ -41,7 +41,10 @@ contract Presale is Ownable {
     }
 
     receive() external payable {
-        require(startTime > 0, "PRESALE: not started");
+        require(
+            startTime > 0 && startTime <= uint64(block.timestamp),
+            "PRESALE: not started"
+        );
         require(
             startTime + period >= uint64(block.timestamp),
             "PRESALE: ended"
@@ -58,11 +61,15 @@ contract Presale is Ownable {
         emit Invested(msg.sender, msg.value);
     }
 
-    function start() external onlyOwner {
-        require(startTime == 0, "PRESALE: already started");
-        startTime = uint64(block.timestamp);
+    function scheduleStart(uint64 _startTime) external onlyOwner {
+        require(startTime == 0, "PRESALE: already scheduled");
+        require(
+            _startTime >= uint64(block.timestamp),
+            "PRESALE: must be greater than block time"
+        );
+        startTime = _startTime;
 
-        emit Started();
+        emit ScheduleStart(_startTime);
     }
 
     function isFinished() public view returns (bool) {

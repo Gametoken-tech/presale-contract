@@ -110,26 +110,53 @@ describe('GameToken', () => {
 
   describe('start', () => {
     it('Revert if msg.sender is not owner', async () => {
-      await expect(presale.connect(alice).start()).to.be.revertedWith(
-        'Ownable: caller is not the owner',
+      await expect(
+        presale.connect(alice).scheduleStart(10000000),
+      ).to.be.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('Revert if start time is lower than block time', async () => {
+      const startTime = BigNumber.from((await time.latest()).toString()).sub(
+        '100',
       );
+      await expect(
+        presale.connect(owner).scheduleStart(startTime),
+      ).to.be.revertedWith('PRESALE: must be greater than block time');
     });
 
     it('Start and emit Started event', async () => {
-      const tx = await presale.connect(owner).start();
-      const startTime = BigNumber.from((await time.latest()).toString());
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      const tx = await presale.connect(owner).scheduleStart(startTime);
       expect(await presale.startTime()).to.equal(startTime);
-      expect(tx).to.emit(presale, 'Started').withArgs();
+      expect(tx).to.emit(presale, 'ScheduleStart').withArgs(startTime);
     });
 
-    it('Revert if already started', async () => {
-      await presale.connect(owner).start();
-      await expect(presale.connect(owner).start()).to.be.revertedWith(
-        'PRESALE: already started',
+    it('Revert if already scheduled', async () => {
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
       );
+      await presale.connect(owner).scheduleStart(startTime);
+      await expect(
+        presale.connect(owner).scheduleStart(startTime),
+      ).to.be.revertedWith('PRESALE: already scheduled');
     });
 
     it('Revert invest if not started', async () => {
+      await expect(
+        alice.sendTransaction({
+          to: presale.address,
+          value: ethers.utils.parseEther('1.0'),
+        }),
+      ).to.be.revertedWith('PRESALE: not started');
+
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('50');
+
       await expect(
         alice.sendTransaction({
           to: presale.address,
@@ -141,7 +168,11 @@ describe('GameToken', () => {
 
   describe('invest', () => {
     beforeEach(async () => {
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
     });
 
     it('Revert if amount is zero', async () => {
@@ -256,10 +287,22 @@ describe('GameToken', () => {
   describe('isFinished', () => {
     it('false if not started', async () => {
       expect(await presale.isFinished()).to.equal(false);
+
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('50');
+
+      expect(await presale.isFinished()).to.equal(false);
     });
 
     it('false if target not reached and period not reached', async () => {
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
       await alice.sendTransaction({
         to: presale.address,
         value: ethers.utils.parseEther('100.0'),
@@ -269,7 +312,11 @@ describe('GameToken', () => {
     });
 
     it('true if target reached', async () => {
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
       for (let i = 0; i < 200; i += 1) {
         await accounts[i].sendTransaction({
           to: presale.address,
@@ -280,7 +327,11 @@ describe('GameToken', () => {
     });
 
     it('true after period', async () => {
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
       await time.increase((PERIOD + 1).toString());
       expect(await presale.isFinished()).to.equal(true);
     });
@@ -300,14 +351,22 @@ describe('GameToken', () => {
     });
 
     it('Revert if not finished', async () => {
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
       await expect(presale.connect(owner).allowClaimGame()).to.be.revertedWith(
         'PRESALE: not finished',
       );
     });
 
     it('Allow claim game if finished and emit AllowClaim event', async () => {
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
       expect(await presale.canClaimGame()).to.equal(false);
       await time.increase(PERIOD.toString());
       const tx = await presale.connect(owner).allowClaimGame();
@@ -322,14 +381,22 @@ describe('GameToken', () => {
         'PRESALE: not allowed',
       );
 
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
       await expect(presale.connect(alice).claim()).to.be.revertedWith(
         'PRESALE: not allowed',
       );
     });
 
     it('Revert if not invested', async () => {
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
       await alice.sendTransaction({
         to: presale.address,
         value: HARD_CAP,
@@ -347,7 +414,11 @@ describe('GameToken', () => {
         presale.address,
         PRESALE_TARGET.div(BigNumber.from('10')),
       );
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
       await alice.sendTransaction({
         to: presale.address,
         value: HARD_CAP,
@@ -380,7 +451,11 @@ describe('GameToken', () => {
         presale.address,
         PRESALE_TARGET.div(BigNumber.from('10')),
       );
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
       await alice.sendTransaction({
         to: presale.address,
         value: HARD_CAP,
@@ -418,14 +493,21 @@ describe('GameToken', () => {
     });
 
     it('Revert if not finished', async () => {
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
       await expect(presale.connect(owner).withdraw()).to.be.revertedWith(
         'PRESALE: not finished',
       );
     });
 
     it('Withdraw ONE and emit Withdrawn event', async () => {
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
       await alice.sendTransaction({
         to: presale.address,
         value: HARD_CAP,
@@ -454,7 +536,11 @@ describe('GameToken', () => {
     });
 
     it('Revert if already withdrawn', async () => {
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
       await alice.sendTransaction({
         to: presale.address,
         value: HARD_CAP,
@@ -472,7 +558,11 @@ describe('GameToken', () => {
     });
 
     it('Revert if no invest', async () => {
-      await presale.connect(owner).start();
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
       await time.increase(PERIOD.toString());
 
       await expect(presale.connect(owner).withdraw()).to.be.revertedWith(
