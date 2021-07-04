@@ -7,3 +7,5 @@ coverage
 coverage.json
 
 package-lock.json
+.env
+deployments
