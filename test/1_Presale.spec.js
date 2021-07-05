@@ -7,7 +7,6 @@ describe('GameToken', () => {
   let owner;
   let alice;
   let bob;
-  let carol;
   let treasury;
   let accounts;
   let gameToken;
@@ -65,6 +64,10 @@ describe('GameToken', () => {
 
     it('Check owner', async () => {
       expect(await presale.owner()).to.equal(owner.address);
+    });
+
+    it('Check participants', async () => {
+      expect(await presale.participants()).to.equal(0);
     });
   });
 
@@ -196,6 +199,7 @@ describe('GameToken', () => {
       expect(tx).to.emit(presale, 'Invested').withArgs(alice.address, amount1);
       expect(await presale.invested(alice.address)).to.equal(amount1);
       expect(await presale.totalInvested()).to.equal(amount1);
+      expect(await presale.participants()).to.equal(1);
 
       amount2 = ethers.utils.parseEther('10.0');
       tx = await bob.sendTransaction({
@@ -208,6 +212,7 @@ describe('GameToken', () => {
       expect(tx).to.emit(presale, 'Invested').withArgs(bob.address, amount2);
       expect(await presale.invested(bob.address)).to.equal(amount2);
       expect(await presale.totalInvested()).to.equal(amount1.add(amount2));
+      expect(await presale.participants()).to.equal(2);
 
       amount3 = ethers.utils.parseEther('5.0');
       tx = await alice.sendTransaction({
@@ -224,6 +229,7 @@ describe('GameToken', () => {
       expect(await presale.totalInvested()).to.equal(
         amount1.add(amount2).add(amount3),
       );
+      expect(await presale.participants()).to.equal(2);
     });
 
     it('Revert if hardcap reached', async () => {
@@ -361,6 +367,23 @@ describe('GameToken', () => {
       );
     });
 
+    it('Revert if not enough GAME in contract', async () => {
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
+      await alice.sendTransaction({
+        to: presale.address,
+        value: HARD_CAP,
+      });
+
+      await time.increase(PERIOD.toString());
+      await expect(presale.connect(owner).allowClaimGame()).to.be.revertedWith(
+        'PRESALE: No enough GAME',
+      );
+    });
+
     it('Allow claim game if finished and emit AllowClaim event', async () => {
       const startTime = BigNumber.from((await time.latest()).toString()).add(
         '100',
@@ -370,6 +393,34 @@ describe('GameToken', () => {
       expect(await presale.canClaimGame()).to.equal(false);
       await time.increase(PERIOD.toString());
       const tx = await presale.connect(owner).allowClaimGame();
+      expect(await presale.canClaimGame()).to.equal(true);
+      expect(tx).to.emit(presale, 'AllowClaim').withArgs();
+    });
+
+    it('Withdraw remaining GAME token', async () => {
+      const startTime = BigNumber.from((await time.latest()).toString()).add(
+        '100',
+      );
+      await presale.connect(owner).scheduleStart(startTime);
+      await time.increase('100');
+      await alice.sendTransaction({
+        to: presale.address,
+        value: HARD_CAP,
+      });
+      await gameToken.transfer(
+        presale.address,
+        HARD_CAP.div(BigNumber.from('10')).add(100),
+      );
+      expect(await presale.canClaimGame()).to.equal(false);
+      await time.increase(PERIOD.toString());
+      const ownerBalance = await gameToken.balanceOf(owner.address);
+      const tx = await presale.connect(owner).allowClaimGame();
+      expect(await gameToken.balanceOf(presale.address)).to.equal(
+        HARD_CAP.div(BigNumber.from('10')),
+      );
+      expect(await gameToken.balanceOf(owner.address)).to.equal(
+        ownerBalance.add(BigNumber.from('100')),
+      );
       expect(await presale.canClaimGame()).to.equal(true);
       expect(tx).to.emit(presale, 'AllowClaim').withArgs();
     });
@@ -402,6 +453,10 @@ describe('GameToken', () => {
         value: HARD_CAP,
       });
       await time.increase(PERIOD.toString());
+      await gameToken.transfer(
+        presale.address,
+        HARD_CAP.div(BigNumber.from('10')),
+      );
       await presale.connect(owner).allowClaimGame();
 
       await expect(presale.connect(bob).claim()).to.be.revertedWith(

@@ -24,6 +24,7 @@ contract Presale is Ownable {
     bool public canClaimGame; // Can claim GAME
     mapping(address => uint256) public invested; // Invested ONE amount
     uint256 public totalInvested;
+    uint256 public participants;
     mapping(address => bool) public claimed; // Claimed status
 
     constructor(
@@ -50,6 +51,9 @@ contract Presale is Ownable {
             "PRESALE: ended"
         );
         require(msg.value > 0, "PRESALE: amount cannot be zero");
+        if (invested[msg.sender] == 0) {
+            participants = participants + 1;
+        }
         invested[msg.sender] = invested[msg.sender] + msg.value;
         totalInvested = totalInvested + msg.value;
         require(totalInvested <= PRESALE_TARGET, "PRESALE: reached to target");
@@ -81,6 +85,12 @@ contract Presale is Ownable {
     function allowClaimGame() external onlyOwner {
         require(isFinished(), "PRESALE: not finished");
 
+        uint256 requireAmount = totalInvested / ONE_PER_GAME;
+        uint256 balance = gameToken.balanceOf(address(this));
+        require(balance >= requireAmount, "PRESALE: No enough GAME");
+        if (balance - requireAmount > 0) {
+            gameToken.safeTransfer(owner(), balance - requireAmount);
+        }
         canClaimGame = true;
 
         emit AllowClaim();
