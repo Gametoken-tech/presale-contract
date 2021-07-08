@@ -15,7 +15,6 @@ contract Presale is Ownable {
     event Withdrawn(uint256 amount);
 
     uint256 constant ONE_PER_GAME = 10; // 10 ONE = 1 GAME
-    uint256 constant HARD_CAP = 50000 ether; // Hard cap: 50,000 ONE
     uint256 constant PRESALE_TARGET = 10000000 ether; // Target: 10,000,000 ONE
     IERC20 public immutable gameToken; // Game token address
     address public treasury; // Treasury address
@@ -57,10 +56,6 @@ contract Presale is Ownable {
         invested[msg.sender] = invested[msg.sender] + msg.value;
         totalInvested = totalInvested + msg.value;
         require(totalInvested <= PRESALE_TARGET, "PRESALE: reached to target");
-        require(
-            invested[msg.sender] <= HARD_CAP,
-            "PRESALE: reached to hard cap"
-        );
 
         emit Invested(msg.sender, msg.value);
     }

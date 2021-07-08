@@ -232,27 +232,6 @@ describe('GameToken', () => {
       expect(await presale.participants()).to.equal(2);
     });
 
-    it('Revert if hardcap reached', async () => {
-      await expect(
-        alice.sendTransaction({
-          to: presale.address,
-          value: HARD_CAP.add(BigNumber.from('1')),
-        }),
-      ).to.be.revertedWith('PRESALE: reached to hard cap');
-
-      const amount = ethers.utils.parseEther('100.0');
-      await alice.sendTransaction({
-        to: presale.address,
-        value: amount,
-      });
-      await expect(
-        alice.sendTransaction({
-          to: presale.address,
-          value: HARD_CAP.sub(amount).add(BigNumber.from('1')),
-        }),
-      ).to.be.revertedWith('PRESALE: reached to hard cap');
-    });
-
     it('Revert if target reached', async () => {
       await expect(
         alice.sendTransaction({
