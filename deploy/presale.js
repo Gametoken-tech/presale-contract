@@ -13,3 +13,4 @@ const deployPresale = async function (hre) {
 };
 
 module.exports = deployPresale;
+module.exports.tags = ['Presale'];

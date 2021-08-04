@@ -39,9 +39,15 @@ module.exports = {
     deployer: 0,
     gameToken: {
       1666700000: '0xdC97423e9c6129640Fe72ca6909E8D032029C1e0',
+      1666600000: '0x491614c6d1A7cc8b0A3Ed0bBdecd35a0110c11e6',
     },
     treasury: {
       1666700000: '0x7638Ae4db07cb6e00b8952b238062D6c19b7830c',
+      1666600000: '0xe2303Ad25708c401F4802b7474600AfEcCF3a307',
+    },
+    presale: {
+      1666700000: '0x1cb9328545D1Ae0DB521CBBf716FEeE7E6aa6603',
+      1666600000: '0xaca8db8d8c2ae07906811c3d32a20980b1532af6',
     },
   },
 };
