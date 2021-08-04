@@ -3,7 +3,7 @@ const { expect } = require('chai');
 const { BigNumber } = require('ethers');
 const { time, constants } = require('@openzeppelin/test-helpers');
 
-describe('GameToken', () => {
+describe('Presale', () => {
   let owner;
   let alice;
   let bob;
